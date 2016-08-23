@@ -10,10 +10,13 @@ RUN apt-get update \
             git \
             g++ \
             libicu-dev \
-            libmcrypt-dev \
             libmemcached-dev \
             libmemcached11 \
             zlib1g-dev \
+            libfreetype6-dev \
+            libjpeg62-turbo-dev \
+            libmcrypt-dev \
+            libpng12-dev \
         --no-install-recommends \
 
     # Install PHP extensions
@@ -22,6 +25,9 @@ RUN apt-get update \
     && docker-php-ext-install mbstring \
     && docker-php-ext-install mcrypt \
     && docker-php-ext-install zip \
+    && docker-php-ext-install -j$(nproc) iconv mcrypt \
+    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
+    && docker-php-ext-install -j$(nproc) gd \
     && pecl install apcu-5.1.5 && echo extension=apcu.so > /usr/local/etc/php/conf.d/apcu.ini \
     && apt-get purge -y g++ \
     && apt-get autoremove -y \
@@ -33,17 +39,14 @@ RUN apt-get update \
     # Fix write permissions with shared folders
     && usermod -u 1000 www-data
 
+# Install memcached
 RUN git clone --branch php7 https://github.com/php-memcached-dev/php-memcached /usr/src/php/ext/memcached \
   && cd /usr/src/php/ext/memcached \
   && docker-php-ext-configure memcached \
   && docker-php-ext-install memcached
 
-# Next composer and global composer package, as their versions may change from time to time
-RUN curl -sS https://getcomposer.org/installer | php \
-    && mv composer.phar /usr/local/bin/composer.phar \
-    && composer.phar global require --no-progress "fxp/composer-asset-plugin:~1.2.1" \
-    && composer.phar global require --no-progress "codeception/codeception=2.0.*" \
-    && composer.phar global require --no-progress "codeception/specify=*" \
-    && composer.phar global require --no-progress "codeception/verify=*"
+# Install Composer and make it available in the PATH
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/ --filename=composer \
+    && composer global require --no-progress "fxp/composer-asset-plugin:~1.2.1"
 
 WORKDIR /var/www/html
